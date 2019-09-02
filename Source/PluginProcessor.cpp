@@ -132,30 +132,39 @@ bool EasyChordAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void EasyChordAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
     ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
+    //auto totalNumInputChannels  = getTotalNumInputChannels();
+    //auto totalNumOutputChannels = getTotalNumOutputChannels();
+    buffer.clear();
+    
+    std::vector<int> cMajorChord = {60, 64, 67};
+    MidiBuffer processedMidi;
+    int time;
+    MidiMessage m;
+    for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
+    {
+        if (m.isNoteOn())
+        {
+            for (int i = 0; i < cMajorChord.size();i++)
+            {
+                MidiMessage n = MidiMessage::noteOn(m.getChannel(), cMajorChord.at(i), m.getVelocity());
+                processedMidi.addEvent (n, time);
+            }
+        }
+        if (m.isNoteOff())
+        {
+            MidiMessage n = MidiMessage::allNotesOff(m.getChannel());
+            processedMidi.addEvent(n, time);
+        }
+    }
+    midiMessages.swapWith(processedMidi);
+    
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
     // guaranteed to be empty - they may contain garbage).
     // This is here to avoid people getting screaming feedback
     // when they first compile a plugin, but obviously you don't need to keep
     // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-
-        // ..do something to the data...
-    }
+    
 }
 
 //==============================================================================
@@ -189,3 +198,4 @@ AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new EasyChordAudioProcessor();
 }
+
